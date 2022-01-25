@@ -1,11 +1,17 @@
 {
     "ModTitle": "Torch Taker",
-    "ModVersion": "1.0.3",
+    "ModVersion": "1.1.0",
     "ModAuthor": "Ralzar",
-    "DFUnity_Version": "0.10.24",
+    "DFUnity_Version": "0.13.4",
     "ModDescription": "Allows you to pick torches off the dungeon walls.",
     "GUID": "e25d8eba-57d1-45d1-83e0-794fc8b48e78",
     "Files": [
-        "Assets/Game/Mods/Torch Taker/TorchTaker.cs"
+        "Assets/Game/Mods/Torch Taker/TorchTaker.cs",
+        "Assets/Game/Mods/Torch Taker/Textures/540_6-0.PNG",
+        "Assets/Game/Mods/Torch Taker/Textures/540_16-0.PNG",
+        "Assets/Game/Mods/Torch Taker/Textures/540_17-0.PNG",
+        "Assets/Game/Mods/Torch Taker/Textures/540_18-0.PNG",
+        "Assets/Game/Mods/Torch Taker/Textures/540_20-0.PNG",
+        "Assets/Game/Mods/Torch Taker/Textures/540_21-0.PNG"
     ]
 }
