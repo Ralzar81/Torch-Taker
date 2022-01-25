@@ -33,6 +33,10 @@ namespace TorchTaker
         static int dungeonID;
         static List<Vector3> deactivatedLightsPos;
         static List<Vector3> dousedLightsPos;
+        static List<Vector3> deactivatedLightsPosSaved;
+        static List<Vector3> dousedLightsPosSaved;
+        static bool lightCheck = false;
+        static bool savedLightCheck = false;
 
         static PlayerEnterExit playerEnterExit = GameManager.Instance.PlayerEnterExit;
         static DaggerfallUnity dfUnity = DaggerfallUnity.Instance;
@@ -68,16 +72,11 @@ namespace TorchTaker
         public void RestoreSaveData(object saveData)
         {
             Debug.Log("[Torch Taker] RestoreSaveData");
-            
+            //enteringDungeon = false;
             var torchTakerSaveData = (TorchTakerSaveData)saveData;
-            if (torchTakerSaveData.DeactivatedLightsPos.Count > 0)
-            {
-                SyncDeactivatedLights(torchTakerSaveData.DeactivatedLightsPos);
-            }
-            if (torchTakerSaveData.DousedLightsPos.Count > 0)
-            {
-                SyncDousedLights(torchTakerSaveData.DousedLightsPos);
-            }
+            savedLightCheck = true;
+            deactivatedLightsPosSaved = torchTakerSaveData.DeactivatedLightsPos;
+            dousedLightsPosSaved = torchTakerSaveData.DousedLightsPos;
         }
 
         private static void SyncDeactivatedLights(List<Vector3> savedLights)
@@ -158,9 +157,30 @@ namespace TorchTaker
                 Debug.Log("[Torch Taker] Improved Interior Lighting is not active");
             }
 
-            PlayerEnterExit.OnTransitionDungeonInterior += DouseLights;
+            PlayerEnterExit.OnTransitionDungeonInterior += SetLightCheckFlag;
 
             mod.IsReady = true;
+        }
+
+        void Update()
+        {
+            if (lightCheck && GameManager.Instance.IsPlayingGame())
+            {
+                lightCheck = false;
+                DouseLights();
+            }
+            if (savedLightCheck && GameManager.Instance.IsPlayingGame())
+            {
+                savedLightCheck = false;
+                if (deactivatedLightsPosSaved.Count > 0)
+                {
+                    SyncDeactivatedLights(deactivatedLightsPosSaved);
+                }
+                if (dousedLightsPosSaved.Count > 0)
+                {
+                    SyncDousedLights(dousedLightsPosSaved);
+                }
+            }
         }
 
         private static void RemoveVanillaLightSources(PlayerEnterExit.TransitionEventArgs args)
@@ -185,38 +205,36 @@ namespace TorchTaker
                 if (billBoard.Summary.Archive == 210)
                 {
                     GameObject lightsNode = new GameObject("ImprovedDungeonLight");
-                    lightsNode.transform.parent = billBoard.transform;
-                    AddLight(DaggerfallUnity.Instance, billBoard.transform.gameObject, lightsNode.transform);
+                    lightsNode.transform.SetParent(billBoard.transform);
+
+                    lightsNode.transform.localPosition = new Vector3(0, 0, 0);
+                    Light newLight = lightsNode.AddComponent<Light>();
+                    newLight.range = 6;
                 }
             }
         }
 
-        private static GameObject AddLight(DaggerfallUnity dfUnity, GameObject torch, Transform parent)
+        private static void SetLightCheckFlag(PlayerEnterExit.TransitionEventArgs args)
         {
-            GameObject go = GameObjectHelper.InstantiatePrefab(dfUnity.Option_DungeonLightPrefab.gameObject, string.Empty, parent, torch.transform.position);
-            Light light = go.GetComponent<Light>();
-            if (light != null)
-            {
-                light.range = 5;
-            }
-            return go;
+            lightCheck = true;
         }
 
-        private static void DouseLights(PlayerEnterExit.TransitionEventArgs args)
+
+        private static void DouseLights()
         {
-            Debug.Log("[Torch Taker] DouseLights event = " + args.ToString());
+            Debug.Log("[Torch Taker] DouseLights");
             deactivatedLightsPos = new List<Vector3>();
             dousedLightsPos = new List<Vector3>();
             //if (HumanoidDungeon())
             //{
-                DaggerfallBillboard[] lightBillboards = (DaggerfallBillboard[])FindObjectsOfType(typeof(DaggerfallBillboard)); //Get all "light emitting objects" in the dungeon
-                foreach (DaggerfallBillboard billBoard in lightBillboards)
+            DaggerfallBillboard[] lightBillboards = (DaggerfallBillboard[])FindObjectsOfType(typeof(DaggerfallBillboard)); //Get all "light emitting objects" in the dungeon
+            foreach (DaggerfallBillboard billBoard in lightBillboards)
+            {
+                if (billBoard.Summary.Archive == 210)
                 {
-                    if (billBoard.Summary.Archive == 210)
-                    {
-                        DouseLight(billBoard.transform.gameObject);
-                    }
+                    DouseLight(billBoard.transform.gameObject);
                 }
+            }
             //}
 
             Debug.Log("[Torch Taker] " + deactivatedLightsPos.Count.ToString() + " in deactivatedTorches");
@@ -290,8 +308,12 @@ namespace TorchTaker
                 else if (lightObj != null)
                 {
                     Debug.Log("[Torch Taker] " + dousedLightsPos.Count.ToString() + " in dousedLightsPos");
+                    Debug.Log("[Torch Taker] Position = " + lightObj.transform.position.ToString());
                     DaggerfallBillboard torchBillboard = lightObj.GetComponent<DaggerfallBillboard>();
-                    torchBillboard.transform.Find("ImprovedDungeonLight").gameObject.SetActive(false);
+                    if (torchBillboard.transform.Find("ImprovedDungeonLight") != null)
+                        torchBillboard.transform.Find("ImprovedDungeonLight").gameObject.SetActive(false);
+                    else
+                        torchBillboard.transform.Find("improvedDungeonLighting").gameObject.SetActive(false);
                     torchBillboard.SetMaterial(540, torchBillboard.Summary.Record);
                     dousedLightsPos.Add(lightObj.transform.position);
                     Debug.Log("[Torch Taker] " + dousedLightsPos.Count.ToString() + " in dousedLightsPos");
@@ -308,7 +330,10 @@ namespace TorchTaker
 
                 DaggerfallBillboard torchBillboard = lightObj.GetComponent<DaggerfallBillboard>();
                 torchBillboard.SetMaterial(210, torchBillboard.Summary.Record);
-                torchBillboard.transform.Find("ImprovedDungeonLight").gameObject.SetActive(true);
+                if (torchBillboard.transform.Find("ImprovedDungeonLight") != null)
+                    torchBillboard.transform.Find("ImprovedDungeonLight").gameObject.SetActive(true);
+                else
+                    torchBillboard.transform.Find("improvedDungeonLighting").gameObject.SetActive(true);
                 dousedLightsPos.Remove(lightObj.transform.position);
                 Debug.Log("[Torch Taker] " + dousedLightsPos.Count.ToString() + " in dousedLightsPos");
             }
