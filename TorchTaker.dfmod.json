@@ -13,5 +13,12 @@
         "Assets/Game/Mods/Torch Taker/Textures/540_18-0.PNG",
         "Assets/Game/Mods/Torch Taker/Textures/540_20-0.PNG",
         "Assets/Game/Mods/Torch Taker/Textures/540_21-0.PNG"
+    ],
+    "Dependencies": [
+        {
+            "Name": "improved interior lighting",
+            "IsOptional": true,
+            "IsPeer": false
+        }
     ]
 }
