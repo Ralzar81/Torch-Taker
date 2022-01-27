@@ -37,7 +37,6 @@ namespace TorchTaker
         static List<Vector3> dousedLightsPosSaved;
         static bool lightCheck = false;
         static bool savedLightCheck = false;
-        static bool hpmActive = false;
 
         static PlayerEnterExit playerEnterExit = GameManager.Instance.PlayerEnterExit;
         static DaggerfallUnity dfUnity = DaggerfallUnity.Instance;
@@ -156,12 +155,6 @@ namespace TorchTaker
                 PlayerEnterExit.OnTransitionDungeonInterior += RemoveVanillaLightSources;
                 PlayerEnterExit.OnTransitionDungeonInterior += AddVanillaLightToLightSources;
                 Debug.Log("[Torch Taker] Improved Interior Lighting is not active");
-            }
-            Mod hpm = ModManager.Instance.GetMod("Handpainted Models - Main");
-            if (hpm != null)
-            {
-                Debug.Log("[Torch Taker] HPM active");
-                hpmActive = true;
             }
 
             PlayerEnterExit.OnTransitionDungeonInterior += SetLightCheckFlag;
@@ -316,23 +309,26 @@ namespace TorchTaker
                 {
                     Debug.Log("[Torch Taker] " + dousedLightsPos.Count.ToString() + " in dousedLightsPos");
                     Debug.Log("[Torch Taker] Position = " + lightObj.transform.position.ToString());
-                    
-                    if (hpmActive)
-                    {
-                        lightObj.GetComponent<AudioSource>().mute = true;
-                        lightObj.transform.Find("Point light (1)").gameObject.SetActive(false);
-                        lightObj.transform.Find("FlamesParticleEffect (7)").gameObject.SetActive(false);
-                    }
-                    else
-                    {
-                        DaggerfallBillboard lightBillboard = lightObj.GetComponent<DaggerfallBillboard>();
-                        lightBillboard.GetComponent<AudioSource>().mute = true;
+
+                    DaggerfallBillboard lightBillboard = lightObj.GetComponent<DaggerfallBillboard>();
+                    if (lightBillboard != null)
                         lightBillboard.SetMaterial(540, lightBillboard.Summary.Record);
-                        if (lightBillboard.transform.Find("ImprovedDungeonLight") != null)
-                            lightBillboard.transform.Find("ImprovedDungeonLight").gameObject.SetActive(false);
-                        else
-                            lightBillboard.transform.Find("improvedDungeonLighting").gameObject.SetActive(false);
-                    }
+                    
+                    ParticleSystem lightParticle = lightObj.GetComponentInChildren<ParticleSystem>(true);
+                    if (lightParticle != null)
+                        lightParticle.transform.gameObject.SetActive(false);
+
+                    Light lightLight = lightObj.GetComponentInChildren<Light>(true);
+                    if (lightLight != null)
+                        lightLight.transform.gameObject.SetActive(false);
+
+                    lightObj.GetComponent<AudioSource>().mute = true;
+
+                    Shader LegacyShadersDiffuse = Shader.Find("Legacy Shaders/Diffuse");
+                    if (lightObj.GetComponent<Renderer>().material.shader != null && lightBillboard == null)
+                        lightObj.GetComponent<Renderer>().material.shader = LegacyShadersDiffuse;
+
+
                     dousedLightsPos.Add(lightObj.transform.position);
                     Debug.Log("[Torch Taker] " + dousedLightsPos.Count.ToString() + " in dousedLightsPos");
                 }
@@ -343,26 +339,26 @@ namespace TorchTaker
         {
             if (IsLight(lightObj))
             {
-                Debug.Log("[Torch Taker] " + dousedLightsPos.Count.ToString() + " in dousedLightsPos");
                 Debug.Log("position clicked = " + lightObj.transform.position.ToString());
 
-                
-                if (hpmActive)
-                {
-                    lightObj.GetComponent<AudioSource>().mute = false;
-                    lightObj.transform.Find("Point light (1)").gameObject.SetActive(true);
-                    lightObj.transform.Find("FlamesParticleEffect (7)").gameObject.SetActive(true);
-                }
-                else
-                {
-                    DaggerfallBillboard lightBillboard = lightObj.GetComponent<DaggerfallBillboard>();
+                DaggerfallBillboard lightBillboard = lightObj.GetComponent<DaggerfallBillboard>();
+                if (lightBillboard != null)
                     lightBillboard.SetMaterial(210, lightBillboard.Summary.Record);
-                    lightBillboard.GetComponent<AudioSource>().mute = false;
-                    if (lightBillboard.transform.Find("ImprovedDungeonLight") != null)
-                        lightBillboard.transform.Find("ImprovedDungeonLight").gameObject.SetActive(true);
-                    else
-                        lightBillboard.transform.Find("improvedDungeonLighting").gameObject.SetActive(true);                   
-                }                
+
+                ParticleSystem lightParticle = lightObj.GetComponentInChildren<ParticleSystem>(true);
+                if (lightParticle != null)
+                    lightParticle.transform.gameObject.SetActive(true);
+
+                Light lightLight = lightObj.GetComponentInChildren<Light>(true);
+                if (lightLight != null)
+                    lightLight.transform.gameObject.SetActive(true);
+
+                Shader LegacyShadersVetexLit = Shader.Find("Legacy Shaders/VertexLit");
+                if (lightObj.GetComponent<Renderer>().material.shader != null && lightBillboard == null)
+                    lightObj.GetComponent<Renderer>().material.shader = LegacyShadersVetexLit;
+
+                lightObj.GetComponent<AudioSource>().mute = false;                
+               
                 dousedLightsPos.Remove(lightObj.transform.position);
                 Debug.Log("[Torch Taker] " + dousedLightsPos.Count.ToString() + " in dousedLightsPos");
             }
