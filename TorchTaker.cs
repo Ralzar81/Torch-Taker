@@ -41,6 +41,8 @@ namespace TorchTaker
         static PlayerEnterExit playerEnterExit = GameManager.Instance.PlayerEnterExit;
         static DaggerfallUnity dfUnity = DaggerfallUnity.Instance;
 
+        static Shader LegacyShadersDiffuse = Shader.Find("Legacy Shaders/Diffuse");
+        static Shader LegacyShadersVertexLit = Shader.Find("Legacy Shaders/VertexLit");
 
         public Type SaveDataType
         {
@@ -72,11 +74,14 @@ namespace TorchTaker
         public void RestoreSaveData(object saveData)
         {
             Debug.Log("[Torch Taker] RestoreSaveData");
-            //enteringDungeon = false;
             var torchTakerSaveData = (TorchTakerSaveData)saveData;
-            savedLightCheck = true;
-            deactivatedLightsPosSaved = torchTakerSaveData.DeactivatedLightsPos;
-            dousedLightsPosSaved = torchTakerSaveData.DousedLightsPos;
+            if (torchTakerSaveData.DousedLightsPos != null && torchTakerSaveData.DeactivatedLightsPos != null)
+            {               
+                savedLightCheck = true;
+                deactivatedLightsPosSaved = torchTakerSaveData.DeactivatedLightsPos;
+                dousedLightsPosSaved = torchTakerSaveData.DousedLightsPos;
+            }
+            Debug.Log("[Torch Taker] savedata did not contain both lists");
         }
 
         private static void SyncDeactivatedLights(List<Vector3> savedLights)
@@ -132,12 +137,13 @@ namespace TorchTaker
             instance = go.AddComponent<TorchTaker>();
             mod.SaveDataInterface = instance;
 
-            PlayerActivate.RegisterCustomActivation(mod, 210, 6, ActivateLight);
-            PlayerActivate.RegisterCustomActivation(mod, 210, 16, ActivateLight);
-            PlayerActivate.RegisterCustomActivation(mod, 210, 17, ActivateLight);
-            PlayerActivate.RegisterCustomActivation(mod, 210, 18, ActivateLight);
-            PlayerActivate.RegisterCustomActivation(mod, 210, 20, ActivateLight);
-            PlayerActivate.RegisterCustomActivation(mod, 210, 21, ActivateLight);
+            int billboardRecord = 29;
+            while (billboardRecord > -1)
+            {
+                if (billboardRecord != 8)
+                    PlayerActivate.RegisterCustomActivation(mod, 210, billboardRecord, ActivateLight);
+                billboardRecord--;
+            }
 
             PlayerEnterExit.OnTransitionExterior += OnTransitionExterior_ListCleanup;
             PlayerEnterExit.OnTransitionDungeonExterior += OnTransitionExterior_ListCleanup;
@@ -167,6 +173,7 @@ namespace TorchTaker
             if (lightCheck && GameManager.Instance.IsPlayingGame())
             {
                 lightCheck = false;
+                Debug.Log("[Torch Taker] Update() lightCheck = false running DouseLights()");
                 DouseLights();
             }
             if (savedLightCheck && GameManager.Instance.IsPlayingGame())
@@ -214,8 +221,17 @@ namespace TorchTaker
             }
         }
 
+        private static void AddTrigger(GameObject obj)
+        {
+            BoxCollider boxTrigger = obj.AddComponent<BoxCollider>();
+            {
+                boxTrigger.isTrigger = true;
+            }
+        }
+
         private static void SetLightCheckFlag(PlayerEnterExit.TransitionEventArgs args)
         {
+            Debug.Log("[Torch Taker] SetLightCheckFlag() lightCheck = true");
             lightCheck = true;
         }
 
@@ -227,12 +243,15 @@ namespace TorchTaker
             dousedLightsPos = new List<Vector3>();
             //if (HumanoidDungeon())
             //{
-            DaggerfallBillboard[] lightBillboards = (DaggerfallBillboard[])FindObjectsOfType(typeof(DaggerfallBillboard)); //Get all "light emitting objects" in the dungeon
-            foreach (DaggerfallBillboard billBoard in lightBillboards)
+            //DaggerfallBillboard[] lightBillboards = (DaggerfallBillboard[])FindObjectsOfType(typeof(DaggerfallBillboard)); //Get all "light emitting objects" in the dungeon
+            GameObject[] lightObjects = (GameObject[])FindObjectsOfType(typeof(GameObject));
+            Debug.Log("[Torch Taker] lightObjects.Length = " + lightObjects.Length.ToString());
+            foreach (GameObject obj in lightObjects)
             {
-                if (billBoard.Summary.Archive == 210)
+                Debug.Log("[Torch Taker] obj.name = " + obj.name.ToString());
+                if (obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210,"))
                 {
-                    DouseLight(billBoard.transform.gameObject);
+                    DouseLight(obj);
                 }
             }
             //}
@@ -249,49 +268,129 @@ namespace TorchTaker
             PlayerEntity playerEntity = GameManager.Instance.PlayerEntity;
             PlayerActivateModes activateMode = GameManager.Instance.PlayerActivate.CurrentMode;
             GameObject lightObj = hit.transform.gameObject;
-
-            if (IsLight(lightObj))
+            int lightType = LightTypeInt(lightObj);
+            string itemName = lightNameFromInt(lightType);
+            if (lightType > 0)
             {
                 if (dousedLightsPos.Find(x => x == lightObj.transform.position) != lightObj.transform.position)
                 {
-                    if (activateMode == PlayerActivateModes.Steal)
+                    if (lightType == 1) //torch
                     {
-                        if (lightObj.GetComponent<DaggerfallAction>() == null)
+                        if (activateMode == PlayerActivateModes.Steal)
                         {
-                            DaggerfallUnityItem TorchItem = ItemBuilder.CreateItem(ItemGroups.UselessItems2, (int)UselessItems2.Torch);
-                            TorchItem.currentCondition /= UnityEngine.Random.Range(2, 4);
-                            playerEntity.Items.AddItem(TorchItem);
-                            DouseLight(lightObj);
-                            DaggerfallUI.AddHUDText("You take the torch.");
+                            if (lightObj.GetComponent<DaggerfallAction>() == null)
+                            {
+                                DaggerfallUnityItem TorchItem = ItemBuilder.CreateItem(ItemGroups.UselessItems2, (int)UselessItems2.Torch);
+                                TorchItem.currentCondition /= UnityEngine.Random.Range(2, 4);
+                                playerEntity.Items.AddItem(TorchItem);
+                                DouseLight(lightObj);
+                                DaggerfallUI.AddHUDText("You take the " + itemName + ".");
+                            }
+                            else
+                                DaggerfallUI.AddHUDText("The " + itemName + " is firmly stuck...");
                         }
                         else
-                            DaggerfallUI.AddHUDText("The torch is firmly stuck...");
+                        {
+                            DaggerfallUI.AddHUDText("You see a " + itemName + ".");
+                        }
                     }
-                    else
-                        DaggerfallUI.AddHUDText("You see a torch.");
+                    else if (lightType == 2) //candle
+                    {
+                        if (activateMode == PlayerActivateModes.Steal)
+                        {
+                            if (lightObj.GetComponent<DaggerfallAction>() == null)
+                            {
+                                DouseLight(lightObj);
+                                DaggerfallUI.AddHUDText("You extinguish the " + itemName + ".");
+                            }
+                            else
+                                DaggerfallUI.AddHUDText("The " + itemName + " is firmly stuck...");
+                        }
+                        else if (activateMode == PlayerActivateModes.Info)
+                        {
+                            DaggerfallUI.AddHUDText("You see a " + itemName + ".");
+                        }
+                    }
+                    else if (lightType == 3) //lantern
+                    {
+                        if (activateMode == PlayerActivateModes.Steal)
+                        {
+                            if (lightObj.GetComponent<DaggerfallAction>() == null)
+                            {
+                                DaggerfallUnityItem oilItem = ItemBuilder.CreateItem(ItemGroups.UselessItems2, (int)UselessItems2.Oil);
+                                playerEntity.Items.AddItem(oilItem);
+                                DouseLight(lightObj);
+                                DaggerfallUI.AddHUDText("You pour the oil out of the " + itemName + ".");
+                            }
+                            else
+                                DaggerfallUI.AddHUDText("The " + itemName + " is firmly stuck...");
+                        }
+                        else if (activateMode == PlayerActivateModes.Info)
+                        {
+                            DaggerfallUI.AddHUDText("You see a " + itemName + ".");
+                        }
+                    }
+                    else if (lightType >= 4) //brazier or campfire
+                    {
+                        DaggerfallUI.AddHUDText("You see a burning " + itemName + ".");
+                        DouseLight(lightObj);
+                    }
+
                 }
                 else
                 {
                     if (activateMode != PlayerActivateModes.Info)
                     {
-                        List<DaggerfallUnityItem> inventoryTorches = playerEntity.Items.SearchItems(ItemGroups.UselessItems2, (int)UselessItems2.Torch);
-                        bool torchAvailable = false;
-                        foreach (DaggerfallUnityItem torchItem in inventoryTorches)
+                        bool fuelAvailable = false;
+                        if (lightType == 1) //torch
                         {
-                            if ((playerEntity.LightSource != torchItem) && !torchAvailable)
+                            List<DaggerfallUnityItem> inventoryTorches = playerEntity.Items.SearchItems(ItemGroups.UselessItems2, (int)UselessItems2.Torch);
+                            foreach (DaggerfallUnityItem torchItem in inventoryTorches)
                             {
-                                torchAvailable = true;
-                                playerEntity.Items.RemoveItem(torchItem);
-                                DaggerfallUI.AddHUDText("You replace the torch.");
-                                LightLight(lightObj);
+                                if ((playerEntity.LightSource != torchItem) && !fuelAvailable)
+                                {
+                                    fuelAvailable = true;
+                                    playerEntity.Items.RemoveItem(torchItem);
+                                    DaggerfallUI.AddHUDText("You replace the torch.");
+                                    LightLight(lightObj);
+                                }
                             }
+                            if (!fuelAvailable)
+                                DaggerfallUI.AddHUDText("You have no unlit torches.");
                         }
-                        if (!torchAvailable)
-                            DaggerfallUI.AddHUDText("You have no unlit torches.");
+                        else if (lightType == 2) //candle
+                        {
+                            DaggerfallUI.AddHUDText("You light the candle.");
+                            LightLight(lightObj);
+                        }
+                        else if (lightType == 3) //lantern
+                        {
+                            List<DaggerfallUnityItem> inventoryOil = playerEntity.Items.SearchItems(ItemGroups.UselessItems2, (int)UselessItems2.Oil);
+                            foreach (DaggerfallUnityItem oilItem in inventoryOil)
+                            {
+                                if ((playerEntity.LightSource != oilItem) && !fuelAvailable)
+                                {
+                                    fuelAvailable = true;
+                                    oilItem.stackCount -= 1;
+                                    if (oilItem.stackCount <= 0)
+                                        playerEntity.Items.RemoveItem(oilItem);
+                                    DaggerfallUI.AddHUDText("You refill the " + itemName + ".");
+                                    LightLight(lightObj);
+                                }
+                            }
+                            if (!fuelAvailable)
+                                DaggerfallUI.AddHUDText("You have no oil.");
+                        }
+                        else if (lightType >= 4) //brazier or campfire
+                        {
+                            DaggerfallUI.AddHUDText("You light the " + itemName + ".");
+                            LightLight(lightObj);
+                        }
+                        
                     }
                     else
                     {
-                        DaggerfallUI.AddHUDText("You see a burned out torch.");
+                        DaggerfallUI.AddHUDText("You see an extinguished " + itemName + ".");
                     }
                 }
             }
@@ -299,7 +398,9 @@ namespace TorchTaker
 
         private static void DouseLight(GameObject lightObj)
         {
-            if (IsLight(lightObj))
+            Debug.Log("[Torch Taker] DouseLight() " + lightObj.name);
+            int lightTypeInt = LightTypeInt(lightObj);
+            if (lightTypeInt > 0)
             {
                 if (lightObj.GetComponent<DaggerfallAction>() != null)
                 {
@@ -309,25 +410,46 @@ namespace TorchTaker
                 {
                     Debug.Log("[Torch Taker] " + dousedLightsPos.Count.ToString() + " in dousedLightsPos");
                     Debug.Log("[Torch Taker] Position = " + lightObj.transform.position.ToString());
-
+                    
                     DaggerfallBillboard lightBillboard = lightObj.GetComponent<DaggerfallBillboard>();
                     if (lightBillboard != null)
                         lightBillboard.SetMaterial(540, lightBillboard.Summary.Record);
-                    
-                    ParticleSystem lightParticle = lightObj.GetComponentInChildren<ParticleSystem>(true);
-                    if (lightParticle != null)
-                        lightParticle.transform.gameObject.SetActive(false);
 
-                    Light lightLight = lightObj.GetComponentInChildren<Light>(true);
-                    if (lightLight != null)
-                        lightLight.transform.gameObject.SetActive(false);
+                    ParticleSystem[] lightParticles = lightObj.GetComponentsInChildren<ParticleSystem>(true);
+                    foreach (ParticleSystem lightParticle in lightParticles)
+                    {
+                        if (lightParticle != null)
+                            lightParticle.transform.gameObject.SetActive(false);
+                    }
 
-                    lightObj.GetComponent<AudioSource>().mute = true;
+                    Light[] lightLights = lightObj.GetComponentsInChildren<Light>(true);
+                    foreach (Light lightLight in lightLights)
+                    {
+                        if (lightLight != null)
+                            lightLight.transform.gameObject.SetActive(false);
+                    }
 
-                    Shader LegacyShadersDiffuse = Shader.Find("Legacy Shaders/Diffuse");
-                    if (lightObj.GetComponent<Renderer>().material.shader != null && lightBillboard == null)
-                        lightObj.GetComponent<Renderer>().material.shader = LegacyShadersDiffuse;
+                    MeshRenderer[] lightMeshs = lightObj.GetComponentsInChildren<MeshRenderer>(true);
+                    foreach (MeshRenderer lightMesh in lightMeshs)
+                    {
+                        if (lightMesh != null)
+                        {
+                            Renderer lightMeshRend = lightMesh.transform.gameObject.GetComponent<Renderer>();
+                                if (lightBillboard == null && lightMeshRend != null && lightMeshRend.material.shader != null && lightTypeInt == 1)
+                                    lightMeshRend.material.shader = Shader.Find("Legacy Shaders/Diffuse");
+                        }
+                    }
 
+                    Renderer lightRend = lightObj.GetComponent<Renderer>();
+                    if (lightBillboard == null && lightRend != null && lightRend.material.shader != null && lightTypeInt == 1)
+                        lightRend.material.shader = Shader.Find("Legacy Shaders/Diffuse");
+
+
+                    if (lightObj.GetComponent<AudioSource>() != null)
+                        lightObj.GetComponent<AudioSource>().mute = true;
+
+                    if (lightObj.GetComponent<BoxCollider>() == null)
+                        AddTrigger(lightObj);
 
                     dousedLightsPos.Add(lightObj.transform.position);
                     Debug.Log("[Torch Taker] " + dousedLightsPos.Count.ToString() + " in dousedLightsPos");
@@ -337,7 +459,8 @@ namespace TorchTaker
 
         private static void LightLight(GameObject lightObj)
         {
-            if (IsLight(lightObj))
+            int lightTypeInt = LightTypeInt(lightObj);
+            if (lightTypeInt > 0)
             {
                 Debug.Log("position clicked = " + lightObj.transform.position.ToString());
 
@@ -345,19 +468,37 @@ namespace TorchTaker
                 if (lightBillboard != null)
                     lightBillboard.SetMaterial(210, lightBillboard.Summary.Record);
 
-                ParticleSystem lightParticle = lightObj.GetComponentInChildren<ParticleSystem>(true);
-                if (lightParticle != null)
-                    lightParticle.transform.gameObject.SetActive(true);
+                ParticleSystem[] lightParticles = lightObj.GetComponentsInChildren<ParticleSystem>(true);
+                foreach (ParticleSystem lightParticle in lightParticles)
+                {
+                    if (lightParticle != null)
+                        lightParticle.transform.gameObject.SetActive(true);
+                }
 
-                Light lightLight = lightObj.GetComponentInChildren<Light>(true);
-                if (lightLight != null)
-                    lightLight.transform.gameObject.SetActive(true);
+                Light[] lightLights = lightObj.GetComponentsInChildren<Light>(true);
+                foreach (Light lightLight in lightLights)
+                {
+                    if (lightLight != null)
+                        lightLight.transform.gameObject.SetActive(true);
+                }
 
-                Shader LegacyShadersVetexLit = Shader.Find("Legacy Shaders/VertexLit");
-                if (lightObj.GetComponent<Renderer>().material.shader != null && lightBillboard == null)
-                    lightObj.GetComponent<Renderer>().material.shader = LegacyShadersVetexLit;
+                MeshRenderer[] lightMeshs = lightObj.GetComponentsInChildren<MeshRenderer>(true);
+                foreach (MeshRenderer lightMesh in lightMeshs)
+                {
+                    if (lightMesh != null)
+                    {
+                        Renderer lightMeshRend = lightMesh.transform.gameObject.GetComponent<Renderer>();
+                        if (lightBillboard == null && lightMeshRend != null && lightMeshRend.material.shader != null && lightTypeInt == 1)
+                            lightMeshRend.material.shader = Shader.Find("Legacy Shaders/VertexLit");
+                    }
+                }
 
-                lightObj.GetComponent<AudioSource>().mute = false;                
+                Renderer lightRend = lightObj.GetComponent<Renderer>();                    
+                if (lightBillboard == null && lightRend != null && lightRend.material.shader != null && lightTypeInt == 1)
+                    lightObj.GetComponent<Renderer>().material.shader = Shader.Find("Legacy Shaders/VertexLit");
+
+                if (lightObj.GetComponent<AudioSource>() != null)
+                    lightObj.GetComponent<AudioSource>().mute = false;                
                
                 dousedLightsPos.Remove(lightObj.transform.position);
                 Debug.Log("[Torch Taker] " + dousedLightsPos.Count.ToString() + " in dousedLightsPos");
@@ -365,17 +506,76 @@ namespace TorchTaker
         }
 
 
-        private static bool IsLight(GameObject obj)
+        private static int LightTypeInt(GameObject obj)
         {
+            //0 = not light item
+            //1 = torch
+            //2 = candle
+            //3 = lamp or lantern
+            //4 = brazier
+            //5 = campfire
             if (obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=6]") ||
                 obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=16]") ||
                 obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=17]") ||
                 obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=18]") ||
-                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=20]") ||
-                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=21]"))
-                return true;
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=20]"))
+                return 1;
+            else if (
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=2]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=3]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=4]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=5]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=7]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=9]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=10]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=11]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=19]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=21]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=23]"))
+                return 2;
+            else if (
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=12]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=13]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=14]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=15]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=22]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=24]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=25]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=26]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=27]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=28]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=29]"))
+                return 3;
+            else if (
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=0]") ||
+                obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=19]")
+                )
+                return 4;
+            else if (obj.name.StartsWith("DaggerfallBillboard [TEXTURE.210, Index=1]")
+                )
+                return 5;
             else
-                return false;
+                return 0;
+        }
+
+        private static string lightNameFromInt(int identifier)
+        {
+            switch (identifier)
+            {
+                case 1:
+                    return "torch";
+                case 2:
+                    return "candle";
+                case 3:
+                    return "lamp";
+                case 4:
+                    return "brazier";
+                case 5:
+                    return "campfire";
+                default:
+                    return "light";
+
+            }
         }
 
         private static bool HumanoidDungeon()
