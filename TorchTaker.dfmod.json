@@ -1,47 +1,11 @@
 {
     "ModTitle": "Torch Taker",
-    "ModVersion": "1.1.0",
+    "ModVersion": "1.0.7",
     "ModAuthor": "Ralzar",
-    "DFUnity_Version": "0.13.4",
+    "DFUnity_Version": "0.10.26",
     "ModDescription": "Allows you to pick torches off the dungeon walls.",
     "GUID": "e25d8eba-57d1-45d1-83e0-794fc8b48e78",
     "Files": [
-        "Assets/Game/Mods/Torch Taker/TorchTaker.cs",
-        "Assets/Game/Mods/Torch Taker/Textures/540_18-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_15-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_23-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_4-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_13-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_7-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_10-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_25-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_12-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_3-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_11-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_9-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_26-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_0-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_28-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_29-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_16-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_17-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_27-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_24-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_21-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_20-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_2-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_6-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_1-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_5-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_14-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_22-0.PNG",
-        "Assets/Game/Mods/Torch Taker/Textures/540_19-0.PNG"
-    ],
-    "Dependencies": [
-        {
-            "Name": "improved interior lighting",
-            "IsOptional": true,
-            "IsPeer": false
-        }
+        "Assets/Game/Mods/Torch Taker/TorchTaker.cs"
     ]
 }
